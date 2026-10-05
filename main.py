@@ -17,7 +17,7 @@ CLASSES = [
     "airplane"
 ]
 
-IMAGES_PER_CLASS = 5
+IMAGES_PER_CLASS = 7
 
 SEARCH_QUERIES = {
     "uav": [
@@ -110,7 +110,11 @@ def download_class_images(class_name, queries, limit):
     class_dir = DATASET_DIR / "raw" / class_name
     class_dir.mkdir(parents=True, exist_ok=True)
 
-    downloaded = 0
+    existing_images = list(class_dir.glob("*.jpg"))
+
+    downloaded = len(existing_images)
+    next_index = downloaded
+
     seen_urls = set()
 
     print(f"\n=== Скачивание класса: {class_name} ===")
@@ -140,8 +144,16 @@ def download_class_images(class_name, queries, limit):
 
                 filename = (
                     class_dir /
-                    f"{class_name}_{downloaded:04d}.jpg"
+                    f"{class_name}_{next_index:04d}.jpg"
                 )
+
+                while filename.exists():
+                    next_index += 1
+
+                    filename = (
+                        class_dir /
+                        f"{class_name}_{next_index:04d}.jpg"
+                    )
 
                 success = download_image(
                     image_url,
@@ -150,6 +162,7 @@ def download_class_images(class_name, queries, limit):
 
                 if success:
                     downloaded += 1
+                    next_index += 1
 
                     print(
                         f"[{downloaded}/{limit}] "
