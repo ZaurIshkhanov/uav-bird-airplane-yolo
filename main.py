@@ -1,8 +1,8 @@
 import json
 import random
 import time
-
 import requests
+import hashlib
 
 from pathlib import Path
 from bs4 import BeautifulSoup
@@ -17,7 +17,7 @@ CLASSES = [
     "airplane"
 ]
 
-IMAGES_PER_CLASS = 7
+IMAGES_PER_CLASS = 10
 
 SEARCH_QUERIES = {
     "uav": [
@@ -90,14 +90,41 @@ def get_image_urls(query, offset=0):
 
     return urls
 
-def download_image(image_url, save_path):
+def get_file_hash(file_path):
+    with open(file_path, "rb") as file:
+        file_bytes = file.read()
+
+    return hashlib.sha256(file_bytes).hexdigest()
+
+def get_existing_hashes(class_dir):
+    hashes = set()
+
+    for image_path in class_dir.glob("*.jpg"):
+        image_hash = get_file_hash(image_path)
+        hashes.add(image_hash)
+
+    return hashes
+
+def download_image(image_url, save_path, existing_hashes):
     try:
-        response = requests.get(image_url, timeout=10)
+        response = requests.get(
+            image_url,
+            timeout=10
+        )
 
         if response.status_code == 200:
+            image_hash = hashlib.sha256(
+                response.content
+            ).hexdigest()
+
+            if image_hash in existing_hashes:
+                print("Дубликат изображения — пропускаю")
+                return False
 
             with open(save_path, "wb") as file:
                 file.write(response.content)
+
+            existing_hashes.add(image_hash)
 
             return True
 
@@ -111,13 +138,19 @@ def download_class_images(class_name, queries, limit):
     class_dir.mkdir(parents=True, exist_ok=True)
 
     existing_images = list(class_dir.glob("*.jpg"))
+    existing_hashes = get_existing_hashes(class_dir)
+
+    print(f"\n=== Скачивание класса: {class_name} ===")
+
+    print(
+        f"Файлов: {len(existing_images)}, "
+        f"уникальных SHA-256: {len(existing_hashes)}"
+    )
 
     downloaded = len(existing_images)
     next_index = downloaded
 
     seen_urls = set()
-
-    print(f"\n=== Скачивание класса: {class_name} ===")
 
     for query in queries:
         offset = 0
@@ -157,7 +190,8 @@ def download_class_images(class_name, queries, limit):
 
                 success = download_image(
                     image_url,
-                    filename
+                    filename,
+                    existing_hashes
                 )
 
                 if success:
