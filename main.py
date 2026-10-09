@@ -17,7 +17,7 @@ CLASSES = [
     "airplane"
 ]
 
-IMAGES_PER_CLASS = 10
+IMAGES_PER_CLASS = 180
 
 SEARCH_QUERIES = {
     "uav": [
